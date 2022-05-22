@@ -1,3 +1,4 @@
+from operator import index
 from matplotlib.pyplot import title
 import streamlit as st
 from st_aggrid import AgGrid
@@ -5,52 +6,43 @@ from st_aggrid.grid_options_builder import GridOptionsBuilder
 import pandas as pd
 from pymongo import MongoClient
 import plotly.express as px
+import plotly
 import plotly.graph_objects as go
 import os
 import requests
-
+from bs4 import BeautifulSoup
 
 @st.cache
 def load_data_df():
     """Load dataset in cache"""
     client = MongoClient('localhost',27017)
-    db = client.crunchyroll
-    animes = db.anime.find()
-    df = pd.DataFrame.from_records(animes,index="Unnamed: 0")
+    db = client.tennis
+    atp = db.atp.find()
+    df = pd.DataFrame.from_records(atp,index="Unnamed: 0")
     df = df.drop(["_id"], axis=1)
-    editor = list(df['editor'].drop_duplicates())
-    anime_type = [
-        'action',
-        'adventure',
-        'comedy',
-        'drama',
-        'fantasy',
-        'harem',
-        'historical',
-        'idols',
-        'isekai',
-        'magical_girls',
-        'mecha',
-        'music',
-        'mystery',
-        'post_apocalyptic',
-        'romance',
-        'sci_fi',
-        'seinen',
-        'shojo',
-        'shonen',
-        'slice_of_life',
-        'sports',
-        'supernatural',
-        'thriller'
-    ]
-    return df,editor,anime_type
+    players = list(df['player_name'].drop_duplicates())
+    surfaces = list(df['surface'].drop_duplicates())
+    return df,players,surfaces
 
 # DEF FOR SPACE
 def space(num_lines=1):
     """Adds empty lines to the Streamlit app."""
     for _ in range(num_lines):
         st.write("")
+
+def get_image():
+    headers = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:55.0) Gecko/20100101 Firefox/55.0',
+    }
+    f = open(os.getcwd() + '/images/temp.jpg','wb')
+    f.write(requests.get('https://www.tennisabstract.com/photos/'+player_choice[0].lower().replace(' ','_')+'-sirobi.jpg',headers=headers).content)
+    f.close()
+
+def get_text():
+    url = 'https://fr.wikipedia.org/wiki/'+player_choice[0].title().replace(' ','_')
+    html_text = requests.get(url).text
+    soup = BeautifulSoup(html_text, 'html.parser')
+    return soup.findAll('p')[3].text + soup.findAll('p')[4].text
 
 # CONFIG PAGE
 st.set_page_config(
@@ -59,73 +51,107 @@ st.set_page_config(
     page_title="ATP"
 )
 
-df,editor,anime_type = load_data_df()
+df,players,surfaces = load_data_df()
 
 # SIDEBAR
 image = st.sidebar.image(os.getcwd()+'/images/header.jpg')
 
 st.sidebar.title("OPTIONS")
 space(1)
-title_request = st.sidebar.text_input('TITLE')
+player_choice = st.sidebar.multiselect('PLAYER', players, default=['Novak Djokovic','Roger Federer'])
 space(1)
-editor_choice = st.sidebar.multiselect('PLAYER', editor, default=None)
+surface_choice = st.sidebar.multiselect('SURFACES', surfaces, default=surfaces)
+space(1)
+tourney_choice = st.sidebar.multiselect('TOURNEY', list(df['tourney_name'].drop_duplicates()), default=None)
 space(1)
 col1, col2 = st.sidebar.columns(2)
-start_year = col1.selectbox('START YEAR', range(1968, 2022))
+start_year = col1.selectbox('START YEAR', range(1968, 2023))
 space(1)
-stop_year = col2.selectbox('STOP YEAR', range(start_year, 2022))
+values = range(start_year, 2023)
+stop_year = col2.selectbox('STOP YEAR', values ,index=values.index(2022))
 space(1)
+algo = st.sidebar.selectbox('MACHINE LEARNING ALOGRITHM', ['Random Forest','SVC','Neural Network'])
+space(1)
+
 
 # PAGE
-if title_request != '':
-    df = df[df['title'].str.lower().str.contains(title_request.lower())]
+if player_choice != []:
+    df = df[df['player_name'].isin(player_choice)]
 else:
     pass
 
-if editor_choice != []:
-    df = df[df['editor'].isin(editor_choice)]
+if surface_choice != []:
+    df = df[df['surface'].isin(surface_choice)]
 else:
     pass
+
+if tourney_choice != []:
+    df = df[df['tourney_name'].isin(tourney_choice)]
+else:
+    pass
+
+if True:
+    df = df[df['tourney_date']>= (str(start_year) + '-01-01') ]
+    df = df[df['tourney_date']<= (str(stop_year)+ '-12-31')]
+
+
+if len(player_choice) == 1:
+    col1_desc, col2_img = st.columns(2)
+    col1_desc.write(get_text())
+    get_image()
+    col2_img.image(os.getcwd()+'/images/temp.jpg')
 
 rows = df.shape[0]
 
-selected = str(rows) + ' anime(s) selected'
+selected = str(rows) + ' Matche(s) selected'
 
 st.title(selected)
 
-gb = GridOptionsBuilder.from_dataframe(df[['title','editor','short_desc','nb_videos']])
+liste= ['tourney_name','surface','draw_size','tourney_level','tourney_date','best_of','round','player_name','player_ioc','player_age','player_rank','player_rank_points','target']
+
+gb = GridOptionsBuilder.from_dataframe(df[liste])
 gb.configure_pagination()
 gridOptions = gb.build()
 
-AgGrid(df[['title','editor','short_desc','nb_videos']],fit_columns_on_grid_load=True,gridOptions=gridOptions)
+AgGrid(df[liste],fit_columns_on_grid_load=True,gridOptions=gridOptions)
 
 graph, graph1 = st.columns(2)
 
-editors_data_graph= df['editor'].value_counts().to_frame()
-names = df['editor'].value_counts().index.tolist()
+players_data_graph= df['player_name'].value_counts().to_frame()
+names = df['player_name'].value_counts().index.tolist()
 
-graph.subheader('Graph of editors')
+graph.subheader('Graph of players')
 
-editors_graph = px.pie(editors_data_graph,values='editor',names=names,color_discrete_sequence=px.colors.sequential.Oranges)
+players_graph = px.pie(players_data_graph,values='player_name',names=names,color_discrete_sequence=px.colors.sequential.Darkmint)
 
-editors_graph.update_layout(
-    showlegend=True,
+players_graph.update_layout(
     margin=dict(l=1,r=1,b=1,t=1),
     font=dict(color='#383635', size=15)
 )
 
-editors_graph.update_traces(textposition='inside', textinfo='percent+label')
+players_graph.update_traces(textposition='inside', textinfo='percent+label')
 
-graph.write(editors_graph)
+graph.write(players_graph)
 
-mean_data_graph= df['mean_stars'].value_counts().to_frame()
-names = df['mean_stars'].value_counts().index.tolist()
+surface_data_graph= df['surface'].value_counts().to_frame()
+surface_names = df['surface'].value_counts().index.tolist()
 
-graph1.subheader('Graph of mean stars')
+graph1.subheader('Graph of Surfaces')
 
-mean_graph = px.bar(mean_data_graph,x=names,y='mean_stars',color_discrete_sequence=px.colors.sequential.Peach)
+mean_graph = px.bar(surface_data_graph,x=surface_names,y='surface',color_discrete_sequence=px.colors.sequential.Blugrn)
 
 graph1.write(mean_graph)
+
+# Classement en fonction de la date
+# Taux gain / perte
+
+# MAP 
+world_data_graph= df['player_ioc'].value_counts().to_frame()
+world_names = df['player_ioc'].value_counts().index.tolist()
+
+# Resultat ML
+
+st.write()
 
 # MISE EN FORME
 m = st.markdown("""
@@ -133,18 +159,8 @@ m = st.markdown("""
     div.stButton > button:first-child {
         width: 27em;
     }
-
     .css-1wdq7j4 {
-        background-attachment: fixed;
-        flex-shrink: 0;
-        height: 100vh;
-        overflow: auto;
-        padding: 6rem 1rem;
-        position: relative;
-        transition: margin-left 300ms ease 0s, box-shadow 300ms ease 0s;
-        width: 35rem;
-        z-index: 100;
-        margin-left: 0px;
+        width: 28rem;
     }
 </style>
 """, unsafe_allow_html=True)
