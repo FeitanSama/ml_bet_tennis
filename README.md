@@ -57,3 +57,12 @@ But, you can see the result of this run on the IP Address because the app data i
 
 ## Visuals
 ### Screenshots
+
+![image](https://user-images.githubusercontent.com/56391911/169861639-a3c73fdf-62c8-4cd5-9534-c05944ed3441.png)
+![image](https://user-images.githubusercontent.com/56391911/169861750-b6fa7f89-0de8-4a0f-b676-22ca7c54cbc1.png)
+![image](https://user-images.githubusercontent.com/56391911/169861896-91085257-cc5f-4f93-9e58-f9e2f3687cdb.png)
+![image](https://user-images.githubusercontent.com/56391911/169862035-d025aa7f-1689-4468-8664-38666eccbb3e.png)
+![image](https://user-images.githubusercontent.com/56391911/169864353-bc516b87-9f2d-4f46-a723-5ce02f09942e.png)
+
+
+
