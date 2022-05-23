@@ -9,8 +9,24 @@ import plotly.express as px
 import plotly
 import plotly.graph_objects as go
 import os
+import numpy as np
 import requests
 from bs4 import BeautifulSoup
+from sklearn.compose import make_column_transformer,make_column_selector
+from sklearn.pipeline import make_pipeline, Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+
+# Modèle
+from sklearn.linear_model import LinearRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV
 
 @st.cache
 def load_data_df():
@@ -44,6 +60,66 @@ def get_text():
     soup = BeautifulSoup(html_text, 'html.parser')
     return soup.findAll('p')[3].text + soup.findAll('p')[4].text
 
+def ml():
+    y = df['target'].replace(['win','lose'],[0,1])
+    X = df.drop(['target','tourney_date'],axis=1)
+
+    X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.2,random_state=42)
+
+    numerical_feature = make_column_selector(dtype_include=np.number)
+    categorical_feature = make_column_selector(dtype_exclude=np.number)
+
+    numerical_pipeline = make_pipeline(SimpleImputer(),StandardScaler())
+    categorical_pipeline = make_pipeline(SimpleImputer(strategy= 'most_frequent'),OneHotEncoder(handle_unknown = 'ignore'))
+
+    preprocessor = make_column_transformer((numerical_pipeline,numerical_feature),(categorical_pipeline,categorical_feature))
+
+    methods = [
+        [
+            RandomForestClassifier(random_state = 42),
+            {
+                "alg__max_depth" : [1,3,5,7,10],
+                'alg__min_samples_leaf': [1,2,3,4,5]
+            },
+            'Random Forest',   
+        ],
+        [
+            SVC(random_state = 42),
+            {
+                'alg__C': [0.1,1, 10, 100],
+                'alg__gamma': [1,0.1,0.01,0.001],
+                'alg__kernel': ['rbf', 'poly', 'sigmoid']
+            },
+            'SVC'
+        ],
+        [
+            MLPClassifier(random_state = 42),
+            {
+                'alg__hidden_layer_sizes': [(10,30,10),(20,)],
+                'alg__activation': ['tanh', 'relu'],
+                'alg__solver': ['sgd', 'adam'],
+                'alg__alpha': [0.0001, 0.05],
+                'alg__learning_rate': ['constant','adaptive'],
+                'alg__max_iter': [3000]
+            },
+            'Neural Network'
+        ]
+    ]
+    method, score_best, score_test, tot_result = [],[],[],[]
+
+    # Recherche des meilleurs paramètres pour l'optimisation des algorithmes
+    for met in methods:
+        model = Pipeline([
+            ('pre',preprocessor),
+            ('alg',met[0])
+            ])
+        grid = GridSearchCV(model,met[1],cv=5)
+        grid.fit(X_train,y_train)
+        tot_result.append(str(met[2])+'-\n    > Best score : '+str(grid.best_score_)+'\n    > Best params : '+str(grid.best_params_)+'\n    > Test score : '+str(grid.score(X_test, y_test)))
+
+
+    return tot_result
+
 # CONFIG PAGE
 st.set_page_config(
     layout="wide", 
@@ -64,8 +140,9 @@ col1, col2 = st.sidebar.columns(2)
 start_year = col1.selectbox('START YEAR', range(1968, 2023))
 values = range(start_year, 2023)
 stop_year = col2.selectbox('STOP YEAR', values ,index=values.index(2022))
-algo = st.sidebar.selectbox('MACHINE LEARNING ALOGRITHM', ['Random Forest','SVC','Neural Network'])
-start_ml = st.sidebar.button('START MACHINE LEARNING')
+st.sidebar.header("MACHINE LEARNING")
+st.sidebar.subheader("(Random Forest, SVC, Neural Network)")
+start_ml = st.sidebar.button('START')
 
 
 # PAGE
@@ -194,6 +271,9 @@ world_data_graph= df['player_ioc'].value_counts().to_frame()
 world_names = df['player_ioc'].value_counts().index.tolist()
 
 # Resultat ML
+if start_ml:
+    st.write(ml())
+
 
 st.write()
 
