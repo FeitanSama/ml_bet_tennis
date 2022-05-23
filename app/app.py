@@ -8,9 +8,13 @@ import plotly.express as px
 import plotly
 import plotly.graph_objects as go
 import os
+import glob
 import numpy as np
 import requests
 from bs4 import BeautifulSoup
+from wordcloud import WordCloud, ImageColorGenerator
+import matplotlib.pyplot as plt
+from PIL import Image
 from sklearn.compose import make_column_transformer,make_column_selector
 from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.impute import SimpleImputer
@@ -30,7 +34,8 @@ from sklearn.model_selection import GridSearchCV
 @st.cache
 def load_data_df():
     """Load dataset in cache"""
-    client = MongoClient('localhost',27017)
+    #client = MongoClient('localhost',27017)
+    client = MongoClient("mongodb+srv://guicha:guicha@projetdata.zity6.mongodb.net/?retryWrites=true&w=majority")
     db = client.tennis
     atp = db.atp.find()
     df = pd.DataFrame.from_records(atp,index="Unnamed: 0")
@@ -119,6 +124,29 @@ def ml():
 
     return tot_result
 
+def get_wordcloud():
+    example_string = df['player_name'].to_string()
+    output_file = open('player.txt','a')
+    output_file.write(example_string)
+    output_file.close()
+
+    text = ""
+    with open('player.txt', encoding='utf-8') as f:
+        text = ''.join(f.readlines())
+        
+    wc = WordCloud()
+
+    wc.generate(text)
+        
+    custom_mask = np.array(Image.open("images/Logo_ATP_World_Tour.png"))
+    wc = WordCloud(background_color="white", mask=custom_mask)
+    wc.generate(text)
+    plt.imshow(wc, interpolation='bilinear')
+    plt.axis("off")
+    plt.show()
+
+    wc.to_file('images/logo_wordcloud.png')
+
 # CONFIG PAGE
 st.set_page_config(
     layout="wide", 
@@ -142,7 +170,6 @@ stop_year = col2.selectbox('STOP YEAR', values ,index=values.index(2022))
 st.sidebar.header("MACHINE LEARNING")
 st.sidebar.subheader("(Random Forest, SVC, Neural Network)")
 start_ml = st.sidebar.button('START')
-
 
 # PAGE
 if player_choice != []:
@@ -263,11 +290,11 @@ out_rank = g['player_rank'].value_counts().index.tolist()
 rank_graph = px.bar(out_rank,x=0,y=1,color_discrete_sequence=px.colors.sequential.Aggrnyl,width=1600)
 st.write(rank_graph)
 
-# Taux gain / perte
-
-# MAP 
-world_data_graph= df['player_ioc'].value_counts().to_frame()
-world_names = df['player_ioc'].value_counts().index.tolist()
+if len(player_choice) >= 2:
+    get_wordcloud()
+    st.image(os.getcwd()+'/images/logo_wordcloud.png')
+else:
+    pass
 
 # Resultat ML
 if start_ml:
@@ -280,7 +307,7 @@ st.write()
 m = st.markdown("""
 <style>
     div.stButton > button:first-child {
-        width: 27em;
+        width: 18em;
     }
     .css-1wdq7j4 {
         width: 28rem;
