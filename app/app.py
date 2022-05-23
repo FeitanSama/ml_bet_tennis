@@ -57,21 +57,15 @@ df,players,surfaces = load_data_df()
 image = st.sidebar.image(os.getcwd()+'/images/header.jpg')
 
 st.sidebar.title("OPTIONS")
-space(1)
 player_choice = st.sidebar.multiselect('PLAYER', players, default=['Novak Djokovic','Roger Federer'])
-space(1)
 surface_choice = st.sidebar.multiselect('SURFACES', surfaces, default=surfaces)
-space(1)
 tourney_choice = st.sidebar.multiselect('TOURNEY', list(df['tourney_name'].drop_duplicates()), default=None)
-space(1)
 col1, col2 = st.sidebar.columns(2)
 start_year = col1.selectbox('START YEAR', range(1968, 2023))
-space(1)
 values = range(start_year, 2023)
 stop_year = col2.selectbox('STOP YEAR', values ,index=values.index(2022))
-space(1)
 algo = st.sidebar.selectbox('MACHINE LEARNING ALOGRITHM', ['Random Forest','SVC','Neural Network'])
-space(1)
+start_ml = st.sidebar.button('START MACHINE LEARNING')
 
 
 # PAGE
@@ -133,16 +127,66 @@ players_graph.update_traces(textposition='inside', textinfo='percent+label')
 
 graph.write(players_graph)
 
+
 surface_data_graph= df['surface'].value_counts().to_frame()
 surface_names = df['surface'].value_counts().index.tolist()
 
 graph1.subheader('Graph of Surfaces')
 
-mean_graph = px.bar(surface_data_graph,x=surface_names,y='surface',color_discrete_sequence=px.colors.sequential.Blugrn)
+mean_graph = px.bar(surface_data_graph,surface_names,y='surface',color_discrete_sequence=px.colors.sequential.Blugrn)
 
 graph1.write(mean_graph)
 
-# Classement en fonction de la date
+graph2, graph3 = st.columns(2)
+
+target_data_graph= df['target'].value_counts().to_frame()
+target = df['target'].value_counts().index.tolist()
+
+graph2.subheader('Graph of Win')
+
+target_graph = px.pie(target_data_graph,values='target',names=target,color_discrete_sequence=px.colors.sequential.Darkmint)
+
+target_graph.update_layout(
+    margin=dict(l=1,r=1,b=1,t=1),
+    font=dict(color='#383635', size=15)
+)   
+
+target_graph.update_traces(textposition='inside', textinfo='percent+label')
+
+graph2.write(target_graph)
+
+round_data_graph= df['round'].value_counts().to_frame()
+round_ = df['round'].value_counts().index.tolist()
+
+graph3.subheader('Graph of Rounds')
+
+round_graph = px.pie(round_data_graph,values='round',names=round_,color_discrete_sequence=px.colors.sequential.Darkmint)
+
+round_graph.update_layout(
+    margin=dict(l=1,r=1,b=1,t=1),
+    font=dict(color='#383635', size=15)
+)   
+
+round_graph.update_traces(textposition='inside', textinfo='percent+label')
+
+graph3.write(round_graph)
+
+st.subheader('Rank Points by date')
+
+g = df.sort_values('tourney_date').groupby('tourney_date')
+out_points = g['player_rank_points'].value_counts().index.tolist()
+
+time_graph = px.bar(out_points,x=0,y=1,color_discrete_sequence=px.colors.sequential.Aggrnyl,width=1600)
+
+st.write(time_graph)
+
+st.subheader('Rank by date')
+
+out_rank = g['player_rank'].value_counts().index.tolist()
+
+rank_graph = px.bar(out_rank,x=0,y=1,color_discrete_sequence=px.colors.sequential.Aggrnyl,width=1600)
+st.write(rank_graph)
+
 # Taux gain / perte
 
 # MAP 
@@ -161,6 +205,10 @@ m = st.markdown("""
     }
     .css-1wdq7j4 {
         width: 28rem;
+    }
+
+    p {
+        width: 80%;
     }
 </style>
 """, unsafe_allow_html=True)
